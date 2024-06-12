@@ -30,6 +30,9 @@ bool animatiePozitie = false;
 
 const char* modesSemnalizareMenu[] = {" Intensitate ", " Delay ", " Animatie ", " Viteza ", "Back"};
 bool highlightedSemnalizareMenu[] = {false, false, false, false, false};
+bool enabledSemnalizareMenu[] = {true,true,true,false,true};
+#define SEMNALIZARE_ANIMATIE 2
+#define SEMNALIZARE_VITEZA 3
 int highlightedCurrentSemnalizareMenu = 0;
 int intensitateSemnalizare = 50;
 int vitezaSemnalizare = 50;
@@ -38,6 +41,8 @@ bool animatieSemnalizare = false;
 
 const char* modesFranaMenu[] = {" Emergency ", " Frecventa ", "Back"};
 bool highlightedFranaMenu[] = {false, false, false};
+bool enabledFranaMenu[] = {true,false,true};
+#define FRANA_FRECVENTA 1
 int highlightedCurrentFranaMenu = 0;
 bool blinkFrana = false;
 int frecventaFrana = 50;
@@ -48,6 +53,11 @@ int highlightedCurrentSetariMenu = 0;
 int stilSetari = 1;
 int stiluriSetari = 2;
 bool showmodeSetari = false;
+
+bool highlightedWarningMenu[]={false, false};
+int highlightedCurrentWarningMenu = 1;
+bool warningScreen;
+bool warningScreenWhiteRect = false;
 
 #define charSize(textSize) (6*(textSize))
 
@@ -71,6 +81,7 @@ void initVariables(){
   highlightedMainMenu[highlightedCurrentMainMenu] = true;
   highlightedPozitieMenu[highlightedCurrentPozitieMenu] = true;
   highlightedSemnalizareMenu[highlightedCurrentSemnalizareMenu] = true;
+  highlightedWarningMenu[highlightedCurrentWarningMenu]=true;
 }
 
 void printInCenter(char* text, int textSize, int height, int textColor, bool highlighted){
@@ -97,8 +108,11 @@ void printAtCursor(char* text, int textSize, int x, int y, int textColor, bool h
   if(highlighted == 0){
     tft.setTextColor(textColor, backColor);
   }
-  else{
+  else if(highlighted == 1){
     tft.setTextColor(textColor, highColor);
+  }
+  else if(highlighted == 2){
+    tft.setTextColor(textColor, ILI9341_WHITE);
   }
   tft.println(text);
 }
@@ -144,6 +158,32 @@ void clearBackground() {
   int16_t textWidth = screenWidth;
   int16_t textHeight = 3*partitieHeight;
   tft.fillRect(x, y, textWidth, textHeight, bgColor);
+}
+
+void printWarning(bool clear=false) {
+  int16_t x = 2*partitieWidth; 
+  int16_t y = 3*partitieHeight; 
+  uint16_t bgColor;
+  if(clear==true){
+    bgColor = ILI9341_BLACK;
+    warningScreen=false;
+  }
+  else{
+    bgColor = ILI9341_WHITE;
+    warningScreen=true;
+  }
+  int16_t textWidth = screenWidth-4*partitieWidth;
+  int16_t textHeight = 4*partitieHeight;
+  if(!warningScreenWhiteRect){
+    tft.fillRect(x, y, textWidth, textHeight, bgColor);
+    warningScreenWhiteRect=true;
+  }
+  if(clear==false){
+    
+  }
+  else{
+    tft.fillRect(x, y, textWidth, textHeight, bgColor);
+  }
 }
 
 void mainMenu(){
@@ -352,11 +392,38 @@ void semnalizareMenu(){
 
   int arrLength = 4;
   for(int i=0; i<arrLength; i++){
+    // if(SemnalizareModes[i].highlighted){
+    //   if(SemnalizareModes[i].enabled=="false"){
+    //     printAtCursor(SemnalizareModes[i].modes, 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 1);
+    //   }
+    //   else{
+    //     printAtCursor(SemnalizareModes[i].modes, 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
+    //   }
+    // }
+    // else{
+    //   if(SemnalizareModes[i].enabled=="false"){
+    //     printAtCursor(SemnalizareModes[i].modes, 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 0);
+    //   }
+    //   else{
+    //     printAtCursor(SemnalizareModes[i].modes, 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 0); 
+    //   }
+    // }
+    
     if(highlightedSemnalizareMenu[i]){
-      printAtCursor(modesSemnalizareMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
+      if(enabledSemnalizareMenu[i]==false){
+        printAtCursor(modesSemnalizareMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 1);
+      }
+      else{
+        printAtCursor(modesSemnalizareMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
+      } 
     }
     else{
-      printAtCursor(modesSemnalizareMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 0);
+      if(enabledSemnalizareMenu[i]==false){
+        printAtCursor(modesSemnalizareMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 0);
+      }
+      else{
+        printAtCursor(modesSemnalizareMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 0);
+      }
     }
   }
   char intensitate[5];
@@ -372,12 +439,20 @@ void semnalizareMenu(){
   printAtCursor(delay, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
   cnt=cnt+1;
   if(animatieSemnalizare){
+    enabledSemnalizareMenu[SEMNALIZARE_VITEZA]=true;
     printAtCursor("ON ", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
   }else{
+    enabledSemnalizareMenu[SEMNALIZARE_VITEZA]=false;
     printAtCursor("OFF", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
   }
   cnt=cnt+1;
-  printAtCursor(viteza, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
+  if(enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == true){
+    printAtCursor(viteza, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
+  }
+  else{
+    printAtCursor(viteza, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_DARKGREY, 0);
+  }
+
   cnt=cnt+1;
 
   if(highlightedSemnalizareMenu[arrLength]==1){
@@ -440,12 +515,22 @@ void semnalizareMenu(){
   else{
     if(up == 0){
       if(highlightedCurrentSemnalizareMenu < arrLength){
-        highlightedCurrentSemnalizareMenu+=1;
+        if(highlightedCurrentSemnalizareMenu == SEMNALIZARE_VITEZA-1 && enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == false){
+          highlightedCurrentSemnalizareMenu+=2;
+        }
+        else{
+          highlightedCurrentSemnalizareMenu+=1;
+        }
       }
     }
     if(down == 0){
       if(highlightedCurrentSemnalizareMenu > 0){
-        highlightedCurrentSemnalizareMenu-=1;
+        if(highlightedCurrentSemnalizareMenu == SEMNALIZARE_VITEZA+1 && enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == false){
+          highlightedCurrentSemnalizareMenu-=2;
+        }
+        else{
+          highlightedCurrentSemnalizareMenu-=1;
+        }
       }
     }
   }
@@ -462,10 +547,20 @@ void franaMenu(){
   int arrLength = 2;
   for(int i=0; i<arrLength; i++){
     if(highlightedFranaMenu[i]){
-      printAtCursor(modesFranaMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
+      if(enabledFranaMenu[i]==false){
+        printAtCursor(modesFranaMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 1);
+      }
+      else{
+        printAtCursor(modesFranaMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
+      }
     }
     else{
-      printAtCursor(modesFranaMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 0);
+      if(enabledFranaMenu[i]==false){
+        printAtCursor(modesFranaMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 0);
+      }
+      else{
+        printAtCursor(modesFranaMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 0);
+      }
     }
   }
 
@@ -473,12 +568,19 @@ void franaMenu(){
   int cnt=0;
   sprintf(frecventa, "%d%%", frecventaFrana);
   if(blinkFrana){
+    enabledFranaMenu[FRANA_FRECVENTA]=true;
     printAtCursor("ON ", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
   }else{
+    enabledFranaMenu[FRANA_FRECVENTA]=false;
     printAtCursor("OFF", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
   }
   cnt=cnt+1;
-  printAtCursor(frecventa, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
+  if(enabledFranaMenu[FRANA_FRECVENTA] == true){
+    printAtCursor(frecventa, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
+  }
+  else{
+    printAtCursor(frecventa, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_DARKGREY, 0);
+  }
   cnt=cnt+1;
 
   if(highlightedFranaMenu[arrLength]==1){
@@ -529,18 +631,31 @@ void franaMenu(){
   else{
     if(up == 0){
       if(highlightedCurrentFranaMenu < arrLength){
-        highlightedCurrentFranaMenu+=1;
+        if(highlightedCurrentFranaMenu == FRANA_FRECVENTA-1 && enabledFranaMenu[FRANA_FRECVENTA] == false){
+          highlightedCurrentFranaMenu+=2;
+        }
+        else{
+          highlightedCurrentFranaMenu+=1;
+        }
+        
       }
     }
     if(down == 0){
       if(highlightedCurrentFranaMenu > 0){
-        highlightedCurrentFranaMenu-=1;
+        if(highlightedCurrentFranaMenu == FRANA_FRECVENTA+1 && enabledFranaMenu[FRANA_FRECVENTA] == false){
+          highlightedCurrentFranaMenu-=2;
+        }
+        else{
+          highlightedCurrentFranaMenu-=1;
+        }
       }
     }
   }
   setHighlight(highlightedFranaMenu, highlightedCurrentFranaMenu, arrLength+1);
 
 }
+
+
 
 void setariMenu(){
 
@@ -549,39 +664,42 @@ void setariMenu(){
   int lineThickness = 5;
   tft.fillRect(0, partitieHeight+charSize(2)+20, lineLength, lineThickness, ILI9341_BLUE);
   tft.fillRect(0, 7.5*partitieHeight+charSize(2)+20, lineLength, lineThickness, ILI9341_BLUE);
-
   int arrLength = 2;
-  for(int i=0; i<arrLength; i++){
-    if(highlightedSetariMenu[i]){
-      printAtCursor(modesSetariMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
+  
+  if(warningScreen==false){
+
+  
+    for(int i=0; i<arrLength; i++){
+      if(highlightedSetariMenu[i]){
+        printAtCursor(modesSetariMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
+      }
+      else{
+        printAtCursor(modesSetariMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 0);
+      }
+    }
+    char stil[5];
+    int cnt=0;
+    sprintf(stil, "%d%", stilSetari);
+    printAtCursor(stil, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
+    cnt=cnt+1;
+    if(showmodeSetari){
+      printAtCursor("ON ", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
+    }else{
+      printAtCursor("OFF", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
+    }
+    cnt=cnt+1;
+    
+    if(highlightedSetariMenu[arrLength]==1){
+      printInCenter("Back", 2, 9*partitieHeight, ILI9341_WHITE, 1);
     }
     else{
-      printAtCursor(modesSetariMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 0);
+      printInCenter("Back", 2, 9*partitieHeight, ILI9341_WHITE, 0);
     }
-  }
-  char stil[5];
-  int cnt=0;
-  sprintf(stil, "%d%", stilSetari);
-  printAtCursor(stil, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
-  cnt=cnt+1;
-  if(showmodeSetari){
-    printAtCursor("ON ", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
-  }else{
-    printAtCursor("OFF", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
-  }
-  cnt=cnt+1;
-  
-  if(highlightedSetariMenu[arrLength]==1){
-    printInCenter("Back", 2, 9*partitieHeight, ILI9341_WHITE, 1);
-  }
-  else{
-    printInCenter("Back", 2, 9*partitieHeight, ILI9341_WHITE, 0);
-  }
-
+  } 
   int up = digitalRead(upPin);
   int down = digitalRead(downPin);
   int ok = digitalRead(okPin);
-
+  bool valid = false;
   if(ok == 0){
     if(highlightedCurrentSetariMenu == arrLength){//back to main
       highlightedCurrentSetariMenu = 0; // resetam la prima optiune
@@ -599,6 +717,34 @@ void setariMenu(){
     }
   }
   if(selected == 1){
+     
+    warningScreen=false;
+    printWarning();
+    printInCenter("Esti sigur?",2,4*partitieHeight,ILI9341_BLACK,0);
+    printInCenter("Poate aduce consecinte",1.5,4*partitieHeight+20,ILI9341_BLACK,0);
+    if(highlightedWarningMenu[0]==true){
+      printAtCursor("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 1);
+    }
+    else{
+      printAtCursor("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 0);
+    }
+    if(highlightedWarningMenu[1]==true){
+      printAtCursor("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 1);
+    }
+    else{
+      printAtCursor("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 0);
+    }
+  if(up == 0){
+    if(highlightedCurrentWarningMenu == 0){
+      highlightedCurrentWarningMenu = 1;
+    }
+  }
+  if(down == 0){
+    if(highlightedCurrentWarningMenu == 1){
+      highlightedCurrentWarningMenu = 0;
+    }
+  }
+  setHighlight(highlightedWarningMenu, highlightedCurrentWarningMenu, 2);
     if(up == 0){
       if(highlightedSetariMenu[0] == true){
         if(stilSetari < stiluriSetari)
@@ -617,6 +763,7 @@ void setariMenu(){
         showmodeSetari = false;
       }
     }
+  
   }
   else{
     if(up == 0){
@@ -634,3 +781,5 @@ void setariMenu(){
 
 
 }
+
+ 
