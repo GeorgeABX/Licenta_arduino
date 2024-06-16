@@ -108,18 +108,20 @@ void printAtCursor(char* text, int textSize, int x, int y, int textColor, bool h
   if(highlighted == 0){
     tft.setTextColor(textColor, backColor);
   }
-  else if(highlighted == 1){
+  else {
     tft.setTextColor(textColor, highColor);
-  }
-  else if(highlighted == 2){
-    tft.setTextColor(textColor, ILI9341_WHITE);
   }
   tft.println(text);
 }
 
+void printAtCursor2Colors(char* text, int textSize, int x, int y, int textColor, int backColor){
+  tft.setTextSize(textSize);
+  tft.setCursor(x, y);
+  tft.setTextColor(textColor, backColor);
+  tft.println(text);
+}
+
 void procent(char* buffer, int valoare){
-  // static char buffer[5];
-  // char* buffer = (char*)malloc(5 * sizeof(char));
   if(valoare<100){
     sprintf(buffer, "%d%% ", valoare);
   }else{
@@ -129,7 +131,6 @@ void procent(char* buffer, int valoare){
 }
 
 void loop() {
-  
   switch(currentMenu){
     case 0: mainMenu(); break;
     case 1: pozitieMenu(); break;
@@ -137,7 +138,6 @@ void loop() {
     case 3: franaMenu(); break;
     case 4: setariMenu(); break;
   }
-  
 }
 
 void setHighlight(bool highlighted[], int poz, int dimensiune){
@@ -163,26 +163,22 @@ void clearBackground() {
 void printWarning(bool clear=false) {
   int16_t x = 2*partitieWidth; 
   int16_t y = 3*partitieHeight; 
-  uint16_t bgColor;
-  if(clear==true){
-    bgColor = ILI9341_BLACK;
-    warningScreen=false;
-  }
-  else{
-    bgColor = ILI9341_WHITE;
-    warningScreen=true;
-  }
   int16_t textWidth = screenWidth-4*partitieWidth;
   int16_t textHeight = 4*partitieHeight;
-  if(!warningScreenWhiteRect){
-    tft.fillRect(x, y, textWidth, textHeight, bgColor);
+  uint16_t bgColorWhite = ILI9341_WHITE;
+  uint16_t bgColorBalck = ILI9341_BLACK;
+
+  if(clear == true){
+    warningScreen=false;
+    warningScreenWhiteRect=false;
+    tft.fillRect(x, y, textWidth, textHeight, bgColorBalck);
+  }
+  else if(clear == false){
+    warningScreen=true;
+    if(!warningScreenWhiteRect){
+      tft.fillRect(x, y, textWidth, textHeight, bgColorWhite);
+    }
     warningScreenWhiteRect=true;
-  }
-  if(clear==false){
-    
-  }
-  else{
-    tft.fillRect(x, y, textWidth, textHeight, bgColor);
   }
 }
 
@@ -205,12 +201,6 @@ void mainMenu(){
     }
   }
   printInCenter("    ", 2, 9*partitieHeight, ILI9341_WHITE, 0);
-  // if(highlightedMainMenu[arrLength]==1){
-  //   
-  // }
-  // else{
-  //   printInCenter("Back", 2, 9*partitieHeight, ILI9341_WHITE, 0);
-  // }
 
   int up = digitalRead(upPin);
   int down = digitalRead(downPin);
@@ -263,20 +253,7 @@ void mainMenu(){
         setariMenu(); 
         break;
       }
-
     }
-    // if(highlightedCurrentMainMenu == 0){ //pozitie
-    //   currentMenu=1;
-    //   selected = 0;
-    //   clearBackground();
-    //   pozitieMenu(); 
-    // }
-    // if(highlightedCurrentMainMenu == 1){ //semnalizare
-    //   currentMenu=2;
-    //   selected = 0;
-    //   clearBackground();
-    //   semnalizareMenu(); 
-    // }
   }
   else{
     if(up == 0){
@@ -392,23 +369,6 @@ void semnalizareMenu(){
 
   int arrLength = 4;
   for(int i=0; i<arrLength; i++){
-    // if(SemnalizareModes[i].highlighted){
-    //   if(SemnalizareModes[i].enabled=="false"){
-    //     printAtCursor(SemnalizareModes[i].modes, 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 1);
-    //   }
-    //   else{
-    //     printAtCursor(SemnalizareModes[i].modes, 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
-    //   }
-    // }
-    // else{
-    //   if(SemnalizareModes[i].enabled=="false"){
-    //     printAtCursor(SemnalizareModes[i].modes, 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 0);
-    //   }
-    //   else{
-    //     printAtCursor(SemnalizareModes[i].modes, 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 0); 
-    //   }
-    // }
-    
     if(highlightedSemnalizareMenu[i]){
       if(enabledSemnalizareMenu[i]==false){
         printAtCursor(modesSemnalizareMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 1);
@@ -452,7 +412,6 @@ void semnalizareMenu(){
   else{
     printAtCursor(viteza, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_DARKGREY, 0);
   }
-
   cnt=cnt+1;
 
   if(highlightedSemnalizareMenu[arrLength]==1){
@@ -637,7 +596,6 @@ void franaMenu(){
         else{
           highlightedCurrentFranaMenu+=1;
         }
-        
       }
     }
     if(down == 0){
@@ -655,8 +613,6 @@ void franaMenu(){
 
 }
 
-
-
 void setariMenu(){
 
   printInCenter("  Setari  ", 2, partitieHeight, ILI9341_WHITE, 0);
@@ -668,7 +624,6 @@ void setariMenu(){
   
   if(warningScreen==false){
 
-  
     for(int i=0; i<arrLength; i++){
       if(highlightedSetariMenu[i]){
         printAtCursor(modesSetariMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
@@ -709,42 +664,71 @@ void setariMenu(){
       mainMenu(); 
     } 
     else{
-      if(selected == 0){
+      if(selected == 0){ //0 - lista cu optiuni
         selected = 1;
-      }else{
+        warningScreen = true;
+      }else if(selected == 1){ //1 - warning screen
+        warningScreen = false;
+        printWarning(true);
+        if(highlightedWarningMenu[0] == true){
+          selected = 2;
+        }
+        else{
+          selected = 0;
+        }
+        highlightedCurrentWarningMenu = 1; // reset to No
+        setHighlight(highlightedWarningMenu, highlightedCurrentWarningMenu, 2); 
+      }else if(selected == 2){ //2 - modificarea optiunilor din lista
         selected = 0;
       }
     }
   }
-  if(selected == 1){
-     
-    warningScreen=false;
+
+  if(selected == 0){
+    if(up == 0){
+      if(highlightedCurrentSetariMenu < arrLength){
+        highlightedCurrentSetariMenu+=1;
+      }
+    }
+    if(down == 0){
+      if(highlightedCurrentSetariMenu > 0){
+        highlightedCurrentSetariMenu-=1;
+      }
+    }
+  }
+  else if(selected == 1){
     printWarning();
     printInCenter("Esti sigur?",2,4*partitieHeight,ILI9341_BLACK,0);
     printInCenter("Poate aduce consecinte",1.5,4*partitieHeight+20,ILI9341_BLACK,0);
     if(highlightedWarningMenu[0]==true){
-      printAtCursor("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 1);
+      printAtCursor2Colors("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, ILI9341_BLUE);
+      // printAtCursor("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 1);
     }
     else{
-      printAtCursor("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 0);
+      printAtCursor2Colors("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, ILI9341_WHITE);
+      // printAtCursor("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 0);
     }
     if(highlightedWarningMenu[1]==true){
-      printAtCursor("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 1);
+      printAtCursor2Colors("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, ILI9341_BLUE);
+      // printAtCursor("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 1);
     }
     else{
-      printAtCursor("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 0);
+      printAtCursor2Colors("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, ILI9341_WHITE);
+      // printAtCursor("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 0);
     }
-  if(up == 0){
-    if(highlightedCurrentWarningMenu == 0){
-      highlightedCurrentWarningMenu = 1;
+    if(up == 0){
+      if(highlightedCurrentWarningMenu == 0){
+        highlightedCurrentWarningMenu = 1;
+      }
     }
+    if(down == 0){
+      if(highlightedCurrentWarningMenu == 1){
+        highlightedCurrentWarningMenu = 0;
+      }
+    }
+    setHighlight(highlightedWarningMenu, highlightedCurrentWarningMenu, 2);  
   }
-  if(down == 0){
-    if(highlightedCurrentWarningMenu == 1){
-      highlightedCurrentWarningMenu = 0;
-    }
-  }
-  setHighlight(highlightedWarningMenu, highlightedCurrentWarningMenu, 2);
+  else if(selected == 2){
     if(up == 0){
       if(highlightedSetariMenu[0] == true){
         if(stilSetari < stiluriSetari)
@@ -763,23 +747,10 @@ void setariMenu(){
         showmodeSetari = false;
       }
     }
-  
-  }
-  else{
-    if(up == 0){
-      if(highlightedCurrentSetariMenu < arrLength){
-        highlightedCurrentSetariMenu+=1;
-      }
-    }
-    if(down == 0){
-      if(highlightedCurrentSetariMenu > 0){
-        highlightedCurrentSetariMenu-=1;
-      }
-    }
   }
   setHighlight(highlightedSetariMenu, highlightedCurrentSetariMenu, arrLength+1);
 
 
 }
 
- 
+  
