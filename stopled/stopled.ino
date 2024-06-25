@@ -1,8 +1,11 @@
 #include <FastLED.h>
 #include "FastLED_RGBW.h"
+
+#include <CAN.h>
+
 #define LED_PIN 5
 #define NUM_LEDS 63
-
+#define PIN_CS_CAN 7
 #define POZITIE_PIN 4
 #define SEMNALIZARE_PIN 2
 #define FRANA_PIN 3
@@ -49,6 +52,16 @@ int showmode;
 int pozS[3][11];
 int pozJ[3][10];
 
+int intensitatePozitie;
+bool animatiePozitie;
+bool starePozitie;
+int intensitateSemnalizare;
+int delaySemnalizare;
+bool animatieSemnalizare;
+bool stareSemnalizare;
+int stilSetari;
+bool showmodeSetari;
+
 void initializare(){
   int i;
   for(i=colsS-1;i>=0;i--){
@@ -79,6 +92,16 @@ void setup() {
   FastLED.clear();
   FastLED.show();
   Serial.begin(9600);
+
+  while (!Serial);
+  Serial.println("CAN Receiver");
+  CAN.setPins(PIN_CS_CAN);
+  // start the CAN bus at 500 kbps
+  if (!CAN.begin(500E3)) {
+    Serial.println("Starting CAN failed!");
+    while (1);
+  }
+
   initializare();
   pinMode(POZITIE_PIN, INPUT_PULLUP);
   pinMode(SEMNALIZARE_PIN, INPUT_PULLUP);
@@ -103,6 +126,8 @@ void setup() {
 }
 
 void loop() {
+  receiveDataCAN();
+
   showPozitie();
   showSemnalizare();
   showFrana();
@@ -121,20 +146,86 @@ void loop() {
   else{
     Pozitie.onoff = 0;
   }
-  if(fran==0){
-    franaOnOff = 1;
-    // Pozitie.onoff = 1;
-    // Pozitie.intensitate=100;
-    Serial.println("frana on");
-  }
-  else{
-    franaOnOff = 0;
-    // Pozitie.intensitate=20;
-    Serial.println("frana off");
+  // if(fran==0){
+  //   franaOnOff = 1;
+  //   // Pozitie.onoff = 1;
+  //   // Pozitie.intensitate=100;
+  //   Serial.println("frana on");
+  // }
+  // else{
+  //   franaOnOff = 0;
+  //   // Pozitie.intensitate=20;
+  //   Serial.println("frana off");
 
-  }
+  // }
   // FastLED.show();
   
+}
+
+void receiveDataCAN(){
+  int packetSize = CAN.parsePacket();
+  
+  if (packetSize) {
+    if (CAN.packetId() == 0x123) {
+      uint8_t data1[8];
+      int intensitatePozitie;
+      bool animatiePozitie;
+      bool starePozitie;
+      int intensitateSemnalizare;
+      int delaySemnalizare;
+      bool animatieSemnalizare;
+      bool stareSemnalizare;
+      
+      // Citește datele din primul pachet
+      for (int i = 0; i < 8; i++) {
+        data1[i] = CAN.read();
+      }
+      
+      // Reconstruiește variabilele din primul pachet
+      intensitatePozitie = data1[0];
+      animatiePozitie = data1[1] == 1 ? true : false;
+      starePozitie = data1[2] == 1 ? true : false;
+      intensitateSemnalizare = data1[3];
+      delaySemnalizare = data1[4];
+      animatieSemnalizare = data1[5] == 1 ? true : false;
+      stareSemnalizare = data1[6] == 1 ? true : false;
+      
+      // Afișează datele primite
+      Serial.print("Received intensitatePozitie: ");
+      Serial.println(intensitatePozitie);
+      Serial.print("Received animatiePozitie: ");
+      Serial.println(animatiePozitie);
+      Serial.print("Received starePozitie: ");
+      Serial.println(starePozitie);
+      Serial.print("Received intensitateSemnalizare: ");
+      Serial.println(intensitateSemnalizare);
+      Serial.print("Received delaySemnalizare: ");
+      Serial.println(delaySemnalizare);
+      Serial.print("Received animatieSemnalizare: ");
+      Serial.println(animatieSemnalizare);
+      Serial.print("Received stareSemnalizare: ");
+      Serial.println(stareSemnalizare);
+    } else if (CAN.packetId() == 0x124) {
+      uint8_t data2[3];
+      int stilSetari;
+      bool showmodeSetari;
+      
+      // Citește datele din al doilea pachet
+      for (int i = 0; i < 3; i++) {
+        data2[i] = CAN.read();
+      }
+      
+      // Reconstruiește variabilele din al doilea pachet
+      stilSetari = data2[0];
+      showmodeSetari = data2[1] == 1 ? true : false;
+      
+      // Afișează datele primite
+      Serial.print("Received stilSetari: ");
+      Serial.println(stilSetari);
+      Serial.print("Received showmodeSetari: ");
+      Serial.println(showmodeSetari);
+    }
+  }
 }
 
 void showPozitie(){
