@@ -2,24 +2,30 @@
 #include "Adafruit_GFX.h"
 #include "Adafruit_ILI9341.h"
 
+#include <CAN.h>
 #define TFT_DC 9
-#define TFT_CS 10
+#define TFT_CS_TFT 10
+#define TFT_CS_CAN 7
 #define TFT_RST 8
 
 #define upPin 2
 #define downPin 3
 #define okPin 4
+
+const int canId1 = 0x123; // ID-ul primului mesaj CAN
+const int canId2 = 0x124; // ID-ul celui de-al doilea mesaj CAN
+
 int firstStart = 1;
 int selected = 0;
-int currentMenu = 0; //0-main menu, 1-pozitie, 2-semnalizare, 3-frana, 4-setari
+int currentMenu = 0; // 0-main menu, 1-pozitie, 2-semnalizare, 3-setari
 
 uint16_t screenWidth;
 uint16_t screenHeight;
 int partitieHeight;
 int partitieWidth;
 
-const char* modesMainMenu[] = {" Pozitie ", " Semnalizare ", " Frana ", " Setari "};
-bool highlightedMainMenu[] = {false, false, false, false};
+const char* modesMainMenu[] = {" Pozitie ", " Semnalizare ", " Setari "};
+bool highlightedMainMenu[] = {false, false, false};
 int highlightedCurrentMainMenu = 0;
 
 const char* modesPozitieMenu[] = {" Intensitate ", " Animatie ", "Back"};
@@ -27,10 +33,11 @@ bool highlightedPozitieMenu[] = {false, false, false};
 int highlightedCurrentPozitieMenu = 0;
 int intensitatePozitie = 50;
 bool animatiePozitie = false;
+bool starePozitie = false;
 
-const char* modesSemnalizareMenu[] = {" Intensitate ", " Delay ", " Animatie ", " Viteza ", "Back"};
-bool highlightedSemnalizareMenu[] = {false, false, false, false, false};
-bool enabledSemnalizareMenu[] = {true,true,true,false,true};
+const char* modesSemnalizareMenu[] = {" Intensitate ", " Frecventa ", " Animatie ", "Back"};
+bool highlightedSemnalizareMenu[] = {false, false, false, false};
+bool enabledSemnalizareMenu[] = {true,true,true,true};
 #define SEMNALIZARE_ANIMATIE 2
 #define SEMNALIZARE_VITEZA 3
 int highlightedCurrentSemnalizareMenu = 0;
@@ -38,6 +45,7 @@ int intensitateSemnalizare = 50;
 int vitezaSemnalizare = 50;
 int delaySemnalizare = 50;
 bool animatieSemnalizare = false;
+bool stareSemnalizare = false;
 
 const char* modesFranaMenu[] = {" Emergency ", " Frecventa ", "Back"};
 bool highlightedFranaMenu[] = {false, false, false};
@@ -61,10 +69,19 @@ bool warningScreenWhiteRect = false;
 
 #define charSize(textSize) (6*(textSize))
 
-Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC,TFT_RST);
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS_TFT, TFT_DC,TFT_RST);
 
 void setup() {
   Serial.begin(9600);
+
+  while (!Serial);
+  Serial.println("CAN Sender");
+  CAN.setPins(TFT_CS_CAN);
+  if (!CAN.begin(500E3)) {// start the CAN bus at 500 kbps
+    Serial.println("Starting CAN failed!");
+    while (1);
+  }
+
   tft.begin();
   pinMode(upPin, INPUT_PULLUP);
   pinMode(downPin, INPUT_PULLUP);
@@ -130,14 +147,45 @@ void procent(char* buffer, int valoare){
   return buffer;
 }
 
+int intData = 1234;    // Exemplu de date de tip int
+bool boolData = true;  // Exemplu de date de tip bool
+uint8_t data[5];
+
+
 void loop() {
+  sendDataCAN();
+
   switch(currentMenu){
     case 0: mainMenu(); break;
     case 1: pozitieMenu(); break;
     case 2: semnalizareMenu(); break;
-    case 3: franaMenu(); break;
-    case 4: setariMenu(); break;
+    case 3: setariMenu(); break;
   }
+}
+
+void sendDataCAN(){
+  uint8_t data1[8];
+  data1[0] = intensitatePozitie & 0xFF;
+  data1[1] = animatiePozitie ? 1 : 0;
+  data1[2] = starePozitie ? 1 : 0;
+  data1[3] = intensitateSemnalizare & 0xFF;
+  data1[4] = delaySemnalizare & 0xFF;
+  data1[5] = animatieSemnalizare ? 1 : 0;
+  data1[6] = stareSemnalizare ? 1 : 0;
+  data1[7] = 0;
+
+  CAN.beginPacket(canId1);
+  CAN.write(data1, 8);
+  CAN.endPacket();
+
+  uint8_t data2[3];
+  data2[0] = stilSetari & 0xFF;
+  data2[1] = showmodeSetari ? 1 : 0;
+  data2[2] = 0;
+
+  CAN.beginPacket(canId2);
+  CAN.write(data2, 3);
+  CAN.endPacket();
 }
 
 void setHighlight(bool highlighted[], int poz, int dimensiune){
@@ -191,7 +239,7 @@ void mainMenu(){
   int lineThickness = 5;
   tft.fillRect(0, partitieHeight+charSize(2)+20, lineLength, lineThickness, ILI9341_BLUE);
   tft.fillRect(0, 7.5*partitieHeight+charSize(2)+20, lineLength, lineThickness, ILI9341_BLUE);
-  int arrLength = 4;
+  int arrLength = 3;
   for(int i=0; i<arrLength; i++){
     if(highlightedMainMenu[i]){
       printAtCursor(modesMainMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
@@ -243,16 +291,16 @@ void mainMenu(){
         currentMenu=3;
         selected = 0;
         clearBackground();
-        franaMenu(); 
-        break;
-      }
-      case 3: {
-        currentMenu=4;
-        selected = 0;
-        clearBackground();
         setariMenu(); 
         break;
       }
+      // case 3: {
+      //   currentMenu=4;
+      //   selected = 0;
+      //   clearBackground();
+      //   setariMenu(); 
+      //   break;
+      // }
     }
   }
   else{
@@ -367,7 +415,7 @@ void semnalizareMenu(){
   tft.fillRect(0, partitieHeight+charSize(2)+20, lineLength, lineThickness, ILI9341_BLUE);
   tft.fillRect(0, 7.5*partitieHeight+charSize(2)+20, lineLength, lineThickness, ILI9341_BLUE);
 
-  int arrLength = 4;
+  int arrLength = 3;
   for(int i=0; i<arrLength; i++){
     if(highlightedSemnalizareMenu[i]){
       if(enabledSemnalizareMenu[i]==false){
@@ -406,13 +454,13 @@ void semnalizareMenu(){
     printAtCursor("OFF", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
   }
   cnt=cnt+1;
-  if(enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == true){
-    printAtCursor(viteza, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
-  }
-  else{
-    printAtCursor(viteza, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_DARKGREY, 0);
-  }
-  cnt=cnt+1;
+  // if(enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == true){
+  //   printAtCursor(viteza, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
+  // }
+  // else{
+  //   printAtCursor(viteza, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_DARKGREY, 0);
+  // }
+  // cnt=cnt+1;
 
   if(highlightedSemnalizareMenu[arrLength]==1){
     printInCenter("Back", 2, 9*partitieHeight, ILI9341_WHITE, 1);
@@ -474,22 +522,24 @@ void semnalizareMenu(){
   else{
     if(up == 0){
       if(highlightedCurrentSemnalizareMenu < arrLength){
-        if(highlightedCurrentSemnalizareMenu == SEMNALIZARE_VITEZA-1 && enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == false){
-          highlightedCurrentSemnalizareMenu+=2;
-        }
-        else{
-          highlightedCurrentSemnalizareMenu+=1;
-        }
+        highlightedCurrentSemnalizareMenu+=1;
+        // if(highlightedCurrentSemnalizareMenu == SEMNALIZARE_VITEZA-1 && enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == false){
+        //   highlightedCurrentSemnalizareMenu+=2;
+        // }
+        // else{
+        //   highlightedCurrentSemnalizareMenu+=1;
+        // }
       }
     }
     if(down == 0){
       if(highlightedCurrentSemnalizareMenu > 0){
-        if(highlightedCurrentSemnalizareMenu == SEMNALIZARE_VITEZA+1 && enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == false){
-          highlightedCurrentSemnalizareMenu-=2;
-        }
-        else{
-          highlightedCurrentSemnalizareMenu-=1;
-        }
+        highlightedCurrentSemnalizareMenu-=1;
+        // if(highlightedCurrentSemnalizareMenu == SEMNALIZARE_VITEZA+1 && enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == false){
+        //   highlightedCurrentSemnalizareMenu-=2;
+        // }
+        // else{
+        //   highlightedCurrentSemnalizareMenu-=1;
+        // }
       }
     }
   }
