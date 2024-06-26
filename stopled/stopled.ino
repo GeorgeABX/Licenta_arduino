@@ -128,15 +128,29 @@ void setup() {
 
 void loop() {
   receiveDataCAN();
-  if(pozitieStilBackup != Pozitie.stil){
+  // if(pozitieStilBackup != Pozitie.stil){
+  //   FastLED.clear(); // Stinge toate LED-urile
+  //   FastLED.show();
+  //   pozitieStilBackup = Pozitie.stil;
+  //   Pozitie.onoff = 0;
+  // }
+
+  if(Pozitie.onoff == 0){// && Semnalizare.onoff == 0){
     FastLED.clear(); // Stinge toate LED-urile
     FastLED.show();
-    pozitieStilBackup = Pozitie.stil;
-    Pozitie.onoff = 0;
+    Pozitie.stil = stilSetari;
+    showmode = showmodeSetari;
   }
-  showPozitie();
-  showSemnalizare();
-  showFrana();
+  if(showmode==1 && Pozitie.onoff==0){
+    rainbowLoop();
+  }
+  else{
+    showPozitie();
+    showSemnalizare();
+  }
+
+  
+  // showFrana();
   int poz = digitalRead(POZITIE_PIN);
   int semn = digitalRead(SEMNALIZARE_PIN);
   int fran = digitalRead(FRANA_PIN);
@@ -197,8 +211,8 @@ void receiveDataCAN(){
     Semnalizare.intensitate = intensitateSemnalizare;
     Semnalizare.delay = delaySemnalizare;
     Semnalizare.animatie = animatieSemnalizare;
-    Pozitie.stil = stilSetari;
-    showmode = showmodeSetari;
+    // Pozitie.stil = stilSetari;
+    // showmode = showmodeSetari;
 
     // Serial.print("Received intensitatePozitie: ");
     // Serial.println(Pozitie.intensitate);
