@@ -11,13 +11,10 @@
 #define upPin 2
 #define downPin 3
 #define okPin 4
-#define pozitiePin 6
-#define avariiPin 5
+#define switchPin 5
 
 const int canId1 = 0x123; // ID-ul primului mesaj CAN
-const int canId2 = 0x124; // ID-ul celui de-al doilea mesaj CAN
 
-int firstStart = 1;
 int selected = 0;
 int currentMenu = 0; // 0-main menu, 1-pozitie, 2-semnalizare, 3-setari
 
@@ -49,20 +46,13 @@ int delaySemnalizare = 50;
 bool animatieSemnalizare = false;
 bool stareSemnalizare = false;
 
-const char* modesFranaMenu[] = {" Emergency ", " Frecventa ", "Back"};
-bool highlightedFranaMenu[] = {false, false, false};
-bool enabledFranaMenu[] = {true,false,true};
-#define FRANA_FRECVENTA 1
-int highlightedCurrentFranaMenu = 0;
-bool blinkFrana = false;
-int frecventaFrana = 50;
-
 const char* modesSetariMenu[] = {" Stil ", " ShowMode ", "Back"};
 bool highlightedSetariMenu[] = {false, false, false};
 int highlightedCurrentSetariMenu = 0;
 int stilSetari = 1;
 int stiluriSetari = 2;
 bool showmodeSetari = false;
+bool showmodeIntrerupator = false;
 
 bool highlightedWarningMenu[]={false, false};
 int highlightedCurrentWarningMenu = 1;
@@ -75,7 +65,6 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS_TFT, TFT_DC,TFT_RST);
 
 void setup() {
   Serial.begin(9600);
-
   while (!Serial);
   Serial.println("CAN Sender");
   CAN.setPins(TFT_CS_CAN);
@@ -88,6 +77,7 @@ void setup() {
   pinMode(upPin, INPUT_PULLUP);
   pinMode(downPin, INPUT_PULLUP);
   pinMode(okPin, INPUT_PULLUP);
+  pinMode(switchPin, INPUT_PULLUP);
   initVariables();
   tft.fillScreen(ILI9341_BLACK);
 }
@@ -149,29 +139,8 @@ void procent(char* buffer, int valoare){
   return buffer;
 }
 
-int intData = 1234;    // Exemplu de date de tip int
-bool boolData = true;  // Exemplu de date de tip bool
-uint8_t data[5];
-
 void loop() {
-
-  // int poz = digitalRead(pozitiePin);
-  // int semn = digitalRead(avariiPin);
-  // if(semn==0){
-  //   stareSemnalizare = 1;
-  // }
-  // else{
-  //   stareSemnalizare = 0;
-  // }
-  // if(poz==0){
-  //   starePozitie = 1;
-  // }
-  // else{
-  //   starePozitie = 0;
-  // }
-
   sendDataCAN();
-
   switch(currentMenu){
     case 0: mainMenu(); break;
     case 1: pozitieMenu(); break;
@@ -182,6 +151,7 @@ void loop() {
 
 void sendDataCAN(){
   uint8_t data[8];
+  showmodeIntrerupator = digitalRead(switchPin);
   data[0] = intensitatePozitie & 0xFF;
   data[1] = animatiePozitie ? 1 : 0;
   data[2] = intensitateSemnalizare & 0xFF;
@@ -189,8 +159,7 @@ void sendDataCAN(){
   data[4] = animatieSemnalizare ? 1 : 0;
   data[5] = stilSetari & 0xFF;
   data[6] = showmodeSetari ? 1 : 0;
-  data[7] = 0;
-
+  data[7] = showmodeIntrerupator ? 1 : 0;
   CAN.beginPacket(canId1);
   CAN.write(data, 8);
   CAN.endPacket();
@@ -239,10 +208,7 @@ void printWarning(bool clear=false) {
 }
 
 void mainMenu(){
-  if(firstStart==1){
-    printInCenter("  Welcome!  ", 2, partitieHeight, ILI9341_WHITE, 0);
-  }
-
+  printInCenter("  Welcome!  ", 2, partitieHeight, ILI9341_WHITE, 0);
   int lineLength = screenWidth;
   int lineThickness = 5;
   tft.fillRect(0, partitieHeight+charSize(2)+20, lineLength, lineThickness, ILI9341_BLUE);
@@ -263,12 +229,8 @@ void mainMenu(){
   int ok = digitalRead(okPin);
 
   if(ok == 0){
-    if(highlightedCurrentMainMenu == arrLength){//back
-      //se duce inapoi in main menu
-      // highlightedCurrentSemnalizareMenu = 0; // resetam la prima optiune
-      // currentMenu=0;
-      // clearBackground();
-      // mainMenu(); 
+    if(highlightedCurrentMainMenu == arrLength){
+      //back dar aici nu avem
     } 
     else{
       if(selected == 0){
@@ -302,20 +264,12 @@ void mainMenu(){
         setariMenu(); 
         break;
       }
-      // case 3: {
-      //   currentMenu=4;
-      //   selected = 0;
-      //   clearBackground();
-      //   setariMenu(); 
-      //   break;
-      // }
     }
   }
   else{
     if(up == 0){
       if(highlightedCurrentMainMenu < arrLength-1){
         highlightedCurrentMainMenu+=1;
-        
       }
     }
     if(down == 0){
@@ -325,7 +279,6 @@ void mainMenu(){
     }
   }
   setHighlight(highlightedMainMenu, highlightedCurrentMainMenu, arrLength);
-
 }
 
 void pozitieMenu(){
@@ -386,7 +339,8 @@ void pozitieMenu(){
   if(selected == 1){
     if(up == 0){
       if(highlightedPozitieMenu[0] == true){
-        intensitatePozitie += 5;
+        if(intensitatePozitie <= 85)
+          intensitatePozitie += 5;
       }
       if(highlightedPozitieMenu[1] == true){
         animatiePozitie = true;
@@ -394,7 +348,8 @@ void pozitieMenu(){
     } 
     if(down == 0){
       if(highlightedPozitieMenu[0] == true){
-        intensitatePozitie -= 5;
+        if(intensitatePozitie >= 15)
+          intensitatePozitie -= 5;
       }
       if(highlightedPozitieMenu[1] == true){
         animatiePozitie = false;
@@ -462,13 +417,6 @@ void semnalizareMenu(){
     printAtCursor("OFF", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
   }
   cnt=cnt+1;
-  // if(enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == true){
-  //   printAtCursor(viteza, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
-  // }
-  // else{
-  //   printAtCursor(viteza, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_DARKGREY, 0);
-  // }
-  // cnt=cnt+1;
 
   if(highlightedSemnalizareMenu[arrLength]==1){
     printInCenter("Back", 2, 9*partitieHeight, ILI9341_WHITE, 1);
@@ -500,30 +448,28 @@ void semnalizareMenu(){
   if(selected == 1){
     if(up == 0){
       if(highlightedSemnalizareMenu[0] == true){
-        intensitateSemnalizare += 5;
+        if(intensitateSemnalizare <= 85)
+          intensitateSemnalizare += 5;
       }
       if(highlightedSemnalizareMenu[1] == true){
-        delaySemnalizare += 5;
+        if(delaySemnalizare <= 85)
+          delaySemnalizare += 5;
       }
       if(highlightedSemnalizareMenu[2] == true){
         animatieSemnalizare = true;
       }
-      if(highlightedSemnalizareMenu[3] == true){
-        vitezaSemnalizare += 5;
-      }
     } 
     if(down == 0){
       if(highlightedSemnalizareMenu[0] == true){
-        intensitateSemnalizare -= 5;
+        if(intensitateSemnalizare >= 15)
+          intensitateSemnalizare -= 5;
       }
       if(highlightedSemnalizareMenu[1] == true){
-        delaySemnalizare -= 5;
+        if(delaySemnalizare >= 15)
+          delaySemnalizare -= 5;
       }
       if(highlightedSemnalizareMenu[2] == true){
         animatieSemnalizare = false;
-      }
-      if(highlightedSemnalizareMenu[3] == true){
-        vitezaSemnalizare -= 5;
       }
     }
   }
@@ -531,148 +477,18 @@ void semnalizareMenu(){
     if(up == 0){
       if(highlightedCurrentSemnalizareMenu < arrLength){
         highlightedCurrentSemnalizareMenu+=1;
-        // if(highlightedCurrentSemnalizareMenu == SEMNALIZARE_VITEZA-1 && enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == false){
-        //   highlightedCurrentSemnalizareMenu+=2;
-        // }
-        // else{
-        //   highlightedCurrentSemnalizareMenu+=1;
-        // }
       }
     }
     if(down == 0){
       if(highlightedCurrentSemnalizareMenu > 0){
         highlightedCurrentSemnalizareMenu-=1;
-        // if(highlightedCurrentSemnalizareMenu == SEMNALIZARE_VITEZA+1 && enabledSemnalizareMenu[SEMNALIZARE_VITEZA] == false){
-        //   highlightedCurrentSemnalizareMenu-=2;
-        // }
-        // else{
-        //   highlightedCurrentSemnalizareMenu-=1;
-        // }
       }
     }
   }
   setHighlight(highlightedSemnalizareMenu, highlightedCurrentSemnalizareMenu, arrLength+1);
 }
 
-void franaMenu(){
-  printInCenter("  Frana  ", 2, partitieHeight, ILI9341_WHITE, 0);
-  int lineLength = screenWidth;
-  int lineThickness = 5;
-  tft.fillRect(0, partitieHeight+charSize(2)+20, lineLength, lineThickness, ILI9341_BLUE);
-  tft.fillRect(0, 7.5*partitieHeight+charSize(2)+20, lineLength, lineThickness, ILI9341_BLUE);
-
-  int arrLength = 2;
-  for(int i=0; i<arrLength; i++){
-    if(highlightedFranaMenu[i]){
-      if(enabledFranaMenu[i]==false){
-        printAtCursor(modesFranaMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 1);
-      }
-      else{
-        printAtCursor(modesFranaMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
-      }
-    }
-    else{
-      if(enabledFranaMenu[i]==false){
-        printAtCursor(modesFranaMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_DARKGREY, 0);
-      }
-      else{
-        printAtCursor(modesFranaMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 0);
-      }
-    }
-  }
-
-  char frecventa[5];
-  int cnt=0;
-  sprintf(frecventa, "%d%%", frecventaFrana);
-  if(blinkFrana){
-    enabledFranaMenu[FRANA_FRECVENTA]=true;
-    printAtCursor("ON ", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
-  }else{
-    enabledFranaMenu[FRANA_FRECVENTA]=false;
-    printAtCursor("OFF", 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
-  }
-  cnt=cnt+1;
-  if(enabledFranaMenu[FRANA_FRECVENTA] == true){
-    printAtCursor(frecventa, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_WHITE, 0);
-  }
-  else{
-    printAtCursor(frecventa, 2, 10.5*partitieWidth, 3*partitieHeight + cnt*charSize(2) + cnt*10, ILI9341_DARKGREY, 0);
-  }
-  cnt=cnt+1;
-
-  if(highlightedFranaMenu[arrLength]==1){
-    printInCenter("Back", 2, 9*partitieHeight, ILI9341_WHITE, 1);
-  }
-  else{
-    printInCenter("Back", 2, 9*partitieHeight, ILI9341_WHITE, 0);
-  }
-
-  int up = digitalRead(upPin);
-  int down = digitalRead(downPin);
-  int ok = digitalRead(okPin);
-
-  if(ok == 0){
-    if(highlightedCurrentFranaMenu == arrLength){//back to main
-      highlightedCurrentFranaMenu = 0; // resetam la prima optiune
-      currentMenu=0;
-      selected = 0;
-      clearBackground();
-      mainMenu(); 
-    } 
-    else{
-      if(selected == 0){
-        selected = 1;
-      }else{
-        selected = 0;
-      }
-    }
-  }
-  if(selected == 1){
-    if(up == 0){
-      if(highlightedFranaMenu[0] == true){
-        blinkFrana = true;
-      }
-      if(highlightedFranaMenu[1] == true){
-        frecventaFrana += 5;
-      }
-    } 
-    if(down == 0){
-      if(highlightedFranaMenu[0] == true){
-        blinkFrana = false;
-      }
-      if(highlightedFranaMenu[1] == true){
-        frecventaFrana -= 5;
-      }
-    }
-  }
-  else{
-    if(up == 0){
-      if(highlightedCurrentFranaMenu < arrLength){
-        if(highlightedCurrentFranaMenu == FRANA_FRECVENTA-1 && enabledFranaMenu[FRANA_FRECVENTA] == false){
-          highlightedCurrentFranaMenu+=2;
-        }
-        else{
-          highlightedCurrentFranaMenu+=1;
-        }
-      }
-    }
-    if(down == 0){
-      if(highlightedCurrentFranaMenu > 0){
-        if(highlightedCurrentFranaMenu == FRANA_FRECVENTA+1 && enabledFranaMenu[FRANA_FRECVENTA] == false){
-          highlightedCurrentFranaMenu-=2;
-        }
-        else{
-          highlightedCurrentFranaMenu-=1;
-        }
-      }
-    }
-  }
-  setHighlight(highlightedFranaMenu, highlightedCurrentFranaMenu, arrLength+1);
-
-}
-
 void setariMenu(){
-
   printInCenter("  Setari  ", 2, partitieHeight, ILI9341_WHITE, 0);
   int lineLength = screenWidth;
   int lineThickness = 5;
@@ -681,7 +497,6 @@ void setariMenu(){
   int arrLength = 2;
   
   if(warningScreen==false){
-
     for(int i=0; i<arrLength; i++){
       if(highlightedSetariMenu[i]){
         printAtCursor(modesSetariMenu[i], 2, partitieWidth, 3*partitieHeight + i*charSize(2) + i*10, ILI9341_WHITE, 1);
@@ -709,10 +524,12 @@ void setariMenu(){
       printInCenter("Back", 2, 9*partitieHeight, ILI9341_WHITE, 0);
     }
   } 
+
   int up = digitalRead(upPin);
   int down = digitalRead(downPin);
   int ok = digitalRead(okPin);
   bool valid = false;
+
   if(ok == 0){
     if(highlightedCurrentSetariMenu == arrLength){//back to main
       highlightedCurrentSetariMenu = 0; // resetam la prima optiune
@@ -725,7 +542,8 @@ void setariMenu(){
       if(selected == 0){ //0 - lista cu optiuni
         selected = 1;
         warningScreen = true;
-      }else if(selected == 1){ //1 - warning screen
+      }
+      else if(selected == 1){ //1 - warning screen
         warningScreen = false;
         printWarning(true);
         if(highlightedWarningMenu[0] == true){
@@ -736,7 +554,8 @@ void setariMenu(){
         }
         highlightedCurrentWarningMenu = 1; // reset to No
         setHighlight(highlightedWarningMenu, highlightedCurrentWarningMenu, 2); 
-      }else if(selected == 2){ //2 - modificarea optiunilor din lista
+      }
+      else if(selected == 2){ //2 - modificarea optiunilor din lista
         selected = 0;
       }
     }
@@ -760,19 +579,15 @@ void setariMenu(){
     printInCenter("Poate aduce consecinte",1.5,4*partitieHeight+20,ILI9341_BLACK,0);
     if(highlightedWarningMenu[0]==true){
       printAtCursor2Colors("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, ILI9341_BLUE);
-      // printAtCursor("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 1);
     }
     else{
       printAtCursor2Colors("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, ILI9341_WHITE);
-      // printAtCursor("Da", 2, 4*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 0);
     }
     if(highlightedWarningMenu[1]==true){
       printAtCursor2Colors("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, ILI9341_BLUE);
-      // printAtCursor("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 1);
     }
     else{
       printAtCursor2Colors("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, ILI9341_WHITE);
-      // printAtCursor("Nu", 2, 9*partitieWidth, 6*partitieHeight, ILI9341_BLACK, 0);
     }
     if(up == 0){
       if(highlightedCurrentWarningMenu == 0){
@@ -807,8 +622,4 @@ void setariMenu(){
     }
   }
   setHighlight(highlightedSetariMenu, highlightedCurrentSetariMenu, arrLength+1);
-
-
 }
-
-  

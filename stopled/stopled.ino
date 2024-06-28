@@ -1,6 +1,5 @@
 #include <FastLED.h>
 #include "FastLED_RGBW.h"
-
 #include <CAN.h>
 
 #define LED_PIN 5
@@ -9,8 +8,6 @@
 #define POZITIE_PIN 4
 #define SEMNALIZARE_PIN 2
 #define FRANA_PIN 3
-
-// CRGB leds[NUM_LEDS];
 
 CRGBW leds[NUM_LEDS];
 CRGB *ledsRGB = (CRGB *) &leds[0];
@@ -34,7 +31,6 @@ struct semnalizator{
   int intensitate;
   int delay;
   bool animatie;
-  int viteza;
 };
 semnalizator Semnalizare;
 struct pozitie{
@@ -62,6 +58,7 @@ bool animatieSemnalizare;
 bool stareSemnalizare;
 int stilSetari;
 bool showmodeSetari;
+bool showmodeIntrerupator;
 
 void initializare(){
   int i;
@@ -112,8 +109,6 @@ void setup() {
   Semnalizare.animatie=false;
   Semnalizare.delay=100;
   Semnalizare.intensitate=20;
-  Semnalizare.viteza=50;
-
 
   Pozitie.onoff=0;
   Pozitie.animatie=false;
@@ -123,17 +118,10 @@ void setup() {
   pozitieIntensitateBackup = Pozitie.intensitate;
   franaOnOff=0;
   showmode=0;
-
 }
 
 void loop() {
   receiveDataCAN();
-  // if(pozitieStilBackup != Pozitie.stil){
-  //   FastLED.clear(); // Stinge toate LED-urile
-  //   FastLED.show();
-  //   pozitieStilBackup = Pozitie.stil;
-  //   Pozitie.onoff = 0;
-  // }
 
   if(Pozitie.onoff == 0){// && Semnalizare.onoff == 0){
     FastLED.clear(); // Stinge toate LED-urile
@@ -141,16 +129,13 @@ void loop() {
     Pozitie.stil = stilSetari;
     showmode = showmodeSetari;
   }
-  if(showmode==1 && Pozitie.onoff==0){
+  if(showmode==1 && showmodeIntrerupator == 1 && Pozitie.onoff==0){
     rainbowLoop();
   }
   else{
     showPozitie();
     showSemnalizare();
   }
-
-  
-  // showFrana();
   int poz = digitalRead(POZITIE_PIN);
   int semn = digitalRead(SEMNALIZARE_PIN);
   int fran = digitalRead(FRANA_PIN);
@@ -166,20 +151,15 @@ void loop() {
   else{
     Pozitie.onoff = 0;
   }
-  // if(fran==0){
-  //   franaOnOff = 1;
-  //   // Pozitie.onoff = 1;
-  //   // Pozitie.intensitate=100;
-  //   Serial.println("frana on");
-  // }
-  // else{
-  //   franaOnOff = 0;
-  //   // Pozitie.intensitate=20;
-  //   Serial.println("frana off");
-
-  // }
-  FastLED.show();
-  
+  if(fran==0){
+    Pozitie.onoff = 1;
+    Pozitie.intensitate=100;
+    Pozitie.animatie = 0;
+  }
+  else{
+    Pozitie.intensitate = intensitatePozitie;
+    Pozitie.animatie = animatiePozitie;
+  }
 }
 
 void receiveDataCAN(){
@@ -188,12 +168,10 @@ void receiveDataCAN(){
   if (packetSize) {
     if (CAN.packetId() == 0x123) {
       uint8_t data[8];
-      
       // Citește datele din primul pachet
       for (int i = 0; i < 8; i++) {
         data[i] = CAN.read();
       }
-      
       // Reconstruiește variabilele din primul pachet
       intensitatePozitie = data[0];
       animatiePozitie = data[1] == 1 ? true : false;
@@ -202,37 +180,16 @@ void receiveDataCAN(){
       animatieSemnalizare = data[4] == 1 ? true : false;
       stilSetari = data[5];
       showmodeSetari = data[6] == 1 ? true : false;
-      
-      // Afișează datele primite
-      
+      showmodeIntrerupator = data[7] == 1 ? true : false;
     } 
-    Pozitie.intensitate = intensitatePozitie;
-    Pozitie.animatie = animatiePozitie;
     Semnalizare.intensitate = intensitateSemnalizare;
     Semnalizare.delay = delaySemnalizare;
     Semnalizare.animatie = animatieSemnalizare;
-    // Pozitie.stil = stilSetari;
-    // showmode = showmodeSetari;
-
-    // Serial.print("Received intensitatePozitie: ");
-    // Serial.println(Pozitie.intensitate);
-    // Serial.print("Received animatiePozitie: ");
-    // Serial.println(Pozitie.animatie);
-    // Serial.print("Received intensitateSemnalizare: ");
-    // Serial.println(Semnalizare.intensitate);
-    // Serial.print("Received delaySemnalizare: ");
-    // Serial.println(Semnalizare.delay);
-    // Serial.print("Received animatieSemnalizare: ");
-    // Serial.println(Semnalizare.animatie);
-    // Serial.print("Received stilSetari: ");
-    // Serial.println(Pozitie.stil);
-    // Serial.print("Received showmodeSetari: ");
-    // Serial.println(showmode);
   }
 }
 
 void showPozitie(){
-  CRGB colorRed = CRGB((Semnalizare.intensitate*255)/100, 0, 0);
+  CRGB colorRed = CRGB((Pozitie.intensitate*255)/100, 0, 0);
   if(Pozitie.onoff == 0){
     pozitieStart=0;
     if(Pozitie.stil == 1){
@@ -241,13 +198,9 @@ void showPozitie(){
     else if(Pozitie.stil == 2){
       pozitieLoop2(CRGB::Black,0);
     }
-    else if(Pozitie.stil == 3){
-      pozitieLoop3(CRGB::Black,0);
-    }
   }
   else if(Pozitie.onoff == 1){
     if(Pozitie.stil == 1){
-      // pozitieLoop2(CRGB::Black,0);
       if(Pozitie.animatie == true){
         pozitieLoop1(colorRed,Pozitie.delay);
       }
@@ -256,7 +209,6 @@ void showPozitie(){
       }
     }
     else if(Pozitie.stil == 2){
-      // pozitieLoop1(CRGB::Black,0);
       if(Pozitie.animatie == true){
         pozitieLoop2(colorRed,Pozitie.delay);
       }
@@ -264,52 +216,8 @@ void showPozitie(){
         pozitieLoop2(colorRed,0);
       }
     }
-    else if(Pozitie.stil == 3){
-      if(Pozitie.animatie == true){
-        pozitieLoop3(colorRed,Pozitie.delay);
-      }
-      else if(Pozitie.animatie == false){
-        pozitieLoop3(colorRed,0);
-      }
-    }
   } 
 }
-
-// void showFrana(){
-//   if(franaOnOff == 1){
-//     Pozitie.intensitate=100;
-//   }
-//   else{
-//     Pozitie.intensitate = pozitieIntensitateBackup;
-//   }
-// }
-void showFrana(){
-  // if(franaOnOff==0){
-  //   pozitieStart=0;
-  //   if(Pozitie.stil == 1){
-  //     pozitieLoop1(CRGB::Black,0);
-  //   }
-  //   else if(Pozitie.stil == 2){
-  //     pozitieLoop2(CRGB::Black,0);
-  //   }
-  //   else if(Pozitie.stil == 3){
-  //     pozitieLoop3(CRGB::Black,0);
-  //   }
-  // }
-  if(franaOnOff==1){
-    if(Pozitie.stil == 1){
-      frana1();
-    }
-    else if(Pozitie.stil == 2){
-      pozitieLoop2(CRGB::Red,0);
-    }
-    else if(Pozitie.stil == 3){
-      pozitieLoop3(CRGB::Red,0);
-    }
-  }
-}
-
-
 
 void showSemnalizare(){
   CRGB color = CRGB((Semnalizare.intensitate*255)/100, (Semnalizare.intensitate*50)/100, 0);
@@ -337,69 +245,21 @@ void showSemnalizare(){
 }
 
 void pozitieLoop1(CRGB c, int delay_time){
-  if(Pozitie.onoff==1 && pozitieStart==0){
+  if(Pozitie.onoff==1 && pozitieStart==0){ //folosita pentru o singura animatie de pornire
     for(int i = startJ; i < endJ; i++){
         leds[i] = c;
-        FastLED.show();
-        delay(delay_time);
+        if(delay_time!=0){
+          FastLED.show();
+          delay(delay_time);
+        }
     }
-    pozitieStart=1;
-    Serial.print("nu e bun\n");
-  }
-  else if(Pozitie.onoff==0){
-    for(int i = startJ; i < endJ; i++){
-        leds[i] = c;
-    }
-    FastLED.show();
-  }
-}
-
-void frana1(){
-  Pozitie.onoff=0;
-  CRGB c = CRGB(255,0,0);
-  for(int i = startJ; i < endJ; i++){
-        leds[i] = c;
-  }
-  FastLED.show();
-  pozitieStart=0;
-  Pozitie.onoff=1;
-}
-
-void pozitieLoop3(CRGB c, int delay_time){
-  if(Pozitie.onoff==1 && pozitieStart==0){
-    for(int i = 0; i < colsS; i++){
-        leds[i] = c;
-        FastLED.show();
-        delay(delay_time);
-    }
-    leds[colsS] = c;
-    FastLED.show();
-    delay(delay_time);
-    leds[colsS*3-1] = c;
-    FastLED.show();
-    delay(delay_time);
-    leds[startJ+10] = c;
-    FastLED.show();
-    delay(delay_time);
-    leds[startJ+10+1] = c;
-    FastLED.show();
-    delay(delay_time);
-    for(int i = endJ ; i > startJ+10+1+10; i--){
-        leds[i] = c;
-        FastLED.show();
-        delay(delay_time);
+    if(delay_time==0){
+      FastLED.show();
     }
     pozitieStart=1;
   }
-  else if(Pozitie.onoff==0){
-    for(int i = 0; i < colsS; i++){
-        leds[i] = c;
-    }
-    leds[colsS] = c;
-    leds[colsS*3-1] = c;
-    leds[startJ+10] = c;
-    leds[startJ+10+1] = c;
-    for(int i = endJ ; i > startJ+10+1+10; i--){
+  else if(Pozitie.onoff==1){
+    for(int i = startJ; i < endJ; i++){
         leds[i] = c;
     }
     FastLED.show();
@@ -407,30 +267,41 @@ void pozitieLoop3(CRGB c, int delay_time){
 }
 
 void pozitieLoop2(CRGB c, int delay_time){
-  if(Pozitie.onoff==1 && pozitieStart==0){
+  if(Pozitie.onoff==1 && pozitieStart==0){ //folosita pentru o singura animatie de pornire
     for(int i = 0; i < colsS; i++){
         leds[i] = c;
         leds[2*colsS - i-1] = c;
-        FastLED.show();
-        delay(delay_time);
+        if(delay_time!=0){
+          FastLED.show();
+          delay(delay_time);
+        }
     }
     leds[colsS*3-1] = c;
     leds[colsS*3-2] = c;
-    FastLED.show();
-    delay(delay_time);
+    if(delay_time!=0){
+      FastLED.show();
+      delay(delay_time);
+    }
     leds[startJ+9] = c;
     leds[startJ+10] = c;
-    FastLED.show();
-    delay(delay_time);
+    if(delay_time!=0){
+      FastLED.show();
+      delay(delay_time);
+    }
     for(int i = colsJ-1 ; i >= 0; i--){
         leds[51 - i] = c;
         leds[52 + i] = c;
-        FastLED.show();
-        delay(delay_time);
+        if(delay_time!=0){
+          FastLED.show();
+          delay(delay_time);
+        }
+    }
+    if(delay_time==0){
+      FastLED.show();
     }
     pozitieStart=1;
   }
-  else if(Pozitie.onoff==0){
+  else if(Pozitie.onoff==1){
     for(int i = 0; i < colsS; i++){
         leds[i] = c;
         leds[2*colsS - i-1] = c;
@@ -456,7 +327,6 @@ void semnalizareSimpla1(CRGB c, int delay_time){
 
 void semnalizareSimpla2(CRGB c, int delay_time){
   for(int i=2*colsS;i<=endS-3;i++){
-  // for(int i=20;i<=27;i++){
     leds[i] = c;
   }
   for(int i=startJ;i<=startJ+colsJ-3;i++){
@@ -470,39 +340,6 @@ void semnalizareSimpla2(CRGB c, int delay_time){
   for(int i=startJ;i<=startJ+colsJ-3;i++){
     leds[i] = CRGB::Black;
   }
-  FastLED.show();
-  delay(delay_time);
-}
-
-void semnalizareSecventiala2(CRGB c, int delay_time){
-  int i = 2*colsS+7, j = startJ+8, x = 2*colsS+7, y = startJ+8;
-  leds[i] = c; leds[i-1] = c; leds[i-2] = c;
-  leds[j] = c; leds[j-1] = c; leds[j-2] = c;
-  i = i - 3; j = j - 3;
-  FastLED.show();
-  delay(delay_time);
-  leds[i] = c; leds[i-1] = c; leds[i-2] = c;
-  leds[j] = c; leds[j-1] = c; leds[j-2] = c;
-  i = i - 3; j = j - 3;
-  FastLED.show();
-  delay(delay_time);
-  leds[i] = c; leds[i-1] = c;
-  leds[j] = c; leds[j-1] = c; leds[j-2] = c;
-  FastLED.show();
-  delay(delay_time);
-
-  leds[x] = CRGB::Black; leds[x-1] = CRGB::Black; leds[x-2] = CRGB::Black;
-  leds[y] = CRGB::Black; leds[y-1] = CRGB::Black; leds[y-2] = CRGB::Black;
-  x = x - 3; y = y - 3;
-  FastLED.show();
-  delay(delay_time);
-  leds[x] = CRGB::Black; leds[x-1] = CRGB::Black; leds[x-2] = CRGB::Black;
-  leds[y] = CRGB::Black; leds[y-1] = CRGB::Black; leds[y-2] = CRGB::Black;
-  x = x - 3; y = y - 3;
-  FastLED.show();
-  delay(delay_time);
-  leds[x] = CRGB::Black; leds[x-1] = CRGB::Black;
-  leds[y] = CRGB::Black; leds[y-1] = CRGB::Black; leds[y-2] = CRGB::Black;
   FastLED.show();
   delay(delay_time);
 }
@@ -544,12 +381,38 @@ void semnalizareSecventiala1(CRGB c, int delay_time) {
   }
 }
 
-// void semnalizareSecventiala2(CRGB c, )
+void semnalizareSecventiala2(CRGB c, int delay_time){
+  int i = 2*colsS+7, j = startJ+8, x = 2*colsS+7, y = startJ+8;
+  leds[i] = c; leds[i-1] = c; leds[i-2] = c;
+  leds[j] = c; leds[j-1] = c; leds[j-2] = c;
+  i = i - 3; j = j - 3;
+  FastLED.show();
+  delay(delay_time);
+  leds[i] = c; leds[i-1] = c; leds[i-2] = c;
+  leds[j] = c; leds[j-1] = c; leds[j-2] = c;
+  i = i - 3; j = j - 3;
+  FastLED.show();
+  delay(delay_time);
+  leds[i] = c; leds[i-1] = c;
+  leds[j] = c; leds[j-1] = c; leds[j-2] = c;
+  FastLED.show();
+  delay(delay_time);
 
-
-
-
-
+  leds[x] = CRGB::Black; leds[x-1] = CRGB::Black; leds[x-2] = CRGB::Black;
+  leds[y] = CRGB::Black; leds[y-1] = CRGB::Black; leds[y-2] = CRGB::Black;
+  x = x - 3; y = y - 3;
+  FastLED.show();
+  delay(delay_time);
+  leds[x] = CRGB::Black; leds[x-1] = CRGB::Black; leds[x-2] = CRGB::Black;
+  leds[y] = CRGB::Black; leds[y-1] = CRGB::Black; leds[y-2] = CRGB::Black;
+  x = x - 3; y = y - 3;
+  FastLED.show();
+  delay(delay_time);
+  leds[x] = CRGB::Black; leds[x-1] = CRGB::Black;
+  leds[y] = CRGB::Black; leds[y-1] = CRGB::Black; leds[y-2] = CRGB::Black;
+  FastLED.show();
+  delay(delay_time);
+}
 
 void colorFill(CRGB c, int start, int stop){
 	for(int i = start; i < stop; i++){
