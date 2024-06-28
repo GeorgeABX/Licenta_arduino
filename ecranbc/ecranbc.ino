@@ -11,6 +11,8 @@
 #define upPin 2
 #define downPin 3
 #define okPin 4
+#define pozitiePin 6
+#define avariiPin 5
 
 const int canId1 = 0x123; // ID-ul primului mesaj CAN
 const int canId2 = 0x124; // ID-ul celui de-al doilea mesaj CAN
@@ -151,8 +153,23 @@ int intData = 1234;    // Exemplu de date de tip int
 bool boolData = true;  // Exemplu de date de tip bool
 uint8_t data[5];
 
-
 void loop() {
+
+  // int poz = digitalRead(pozitiePin);
+  // int semn = digitalRead(avariiPin);
+  // if(semn==0){
+  //   stareSemnalizare = 1;
+  // }
+  // else{
+  //   stareSemnalizare = 0;
+  // }
+  // if(poz==0){
+  //   starePozitie = 1;
+  // }
+  // else{
+  //   starePozitie = 0;
+  // }
+
   sendDataCAN();
 
   switch(currentMenu){
@@ -164,27 +181,18 @@ void loop() {
 }
 
 void sendDataCAN(){
-  uint8_t data1[8];
-  data1[0] = intensitatePozitie & 0xFF;
-  data1[1] = animatiePozitie ? 1 : 0;
-  data1[2] = starePozitie ? 1 : 0;
-  data1[3] = intensitateSemnalizare & 0xFF;
-  data1[4] = delaySemnalizare & 0xFF;
-  data1[5] = animatieSemnalizare ? 1 : 0;
-  data1[6] = stareSemnalizare ? 1 : 0;
-  data1[7] = 0;
+  uint8_t data[8];
+  data[0] = intensitatePozitie & 0xFF;
+  data[1] = animatiePozitie ? 1 : 0;
+  data[2] = intensitateSemnalizare & 0xFF;
+  data[3] = delaySemnalizare & 0xFF;
+  data[4] = animatieSemnalizare ? 1 : 0;
+  data[5] = stilSetari & 0xFF;
+  data[6] = showmodeSetari ? 1 : 0;
+  data[7] = 0;
 
   CAN.beginPacket(canId1);
-  CAN.write(data1, 8);
-  CAN.endPacket();
-
-  uint8_t data2[3];
-  data2[0] = stilSetari & 0xFF;
-  data2[1] = showmodeSetari ? 1 : 0;
-  data2[2] = 0;
-
-  CAN.beginPacket(canId2);
-  CAN.write(data2, 3);
+  CAN.write(data, 8);
   CAN.endPacket();
 }
 
