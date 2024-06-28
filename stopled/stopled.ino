@@ -48,6 +48,7 @@ pozitie Pozitie;
 int franaOnOff;
 int pozitieIntensitateBackup;
 int showmode;
+int pozitieStilBackup = 0;
 
 int pozS[3][11];
 int pozJ[3][10];
@@ -127,10 +128,29 @@ void setup() {
 
 void loop() {
   receiveDataCAN();
+  // if(pozitieStilBackup != Pozitie.stil){
+  //   FastLED.clear(); // Stinge toate LED-urile
+  //   FastLED.show();
+  //   pozitieStilBackup = Pozitie.stil;
+  //   Pozitie.onoff = 0;
+  // }
 
-  showPozitie();
-  showSemnalizare();
-  showFrana();
+  if(Pozitie.onoff == 0){// && Semnalizare.onoff == 0){
+    FastLED.clear(); // Stinge toate LED-urile
+    FastLED.show();
+    Pozitie.stil = stilSetari;
+    showmode = showmodeSetari;
+  }
+  if(showmode==1 && Pozitie.onoff==0){
+    rainbowLoop();
+  }
+  else{
+    showPozitie();
+    showSemnalizare();
+  }
+
+  
+  // showFrana();
   int poz = digitalRead(POZITIE_PIN);
   int semn = digitalRead(SEMNALIZARE_PIN);
   int fran = digitalRead(FRANA_PIN);
@@ -158,7 +178,7 @@ void loop() {
   //   Serial.println("frana off");
 
   // }
-  // FastLED.show();
+  FastLED.show();
   
 }
 
@@ -167,64 +187,47 @@ void receiveDataCAN(){
   
   if (packetSize) {
     if (CAN.packetId() == 0x123) {
-      uint8_t data1[8];
-      int intensitatePozitie;
-      bool animatiePozitie;
-      bool starePozitie;
-      int intensitateSemnalizare;
-      int delaySemnalizare;
-      bool animatieSemnalizare;
-      bool stareSemnalizare;
+      uint8_t data[8];
       
       // Citește datele din primul pachet
       for (int i = 0; i < 8; i++) {
-        data1[i] = CAN.read();
+        data[i] = CAN.read();
       }
       
       // Reconstruiește variabilele din primul pachet
-      intensitatePozitie = data1[0];
-      animatiePozitie = data1[1] == 1 ? true : false;
-      starePozitie = data1[2] == 1 ? true : false;
-      intensitateSemnalizare = data1[3];
-      delaySemnalizare = data1[4];
-      animatieSemnalizare = data1[5] == 1 ? true : false;
-      stareSemnalizare = data1[6] == 1 ? true : false;
+      intensitatePozitie = data[0];
+      animatiePozitie = data[1] == 1 ? true : false;
+      intensitateSemnalizare = data[2];
+      delaySemnalizare = data[3];
+      animatieSemnalizare = data[4] == 1 ? true : false;
+      stilSetari = data[5];
+      showmodeSetari = data[6] == 1 ? true : false;
       
       // Afișează datele primite
-      Serial.print("Received intensitatePozitie: ");
-      Serial.println(intensitatePozitie);
-      Serial.print("Received animatiePozitie: ");
-      Serial.println(animatiePozitie);
-      Serial.print("Received starePozitie: ");
-      Serial.println(starePozitie);
-      Serial.print("Received intensitateSemnalizare: ");
-      Serial.println(intensitateSemnalizare);
-      Serial.print("Received delaySemnalizare: ");
-      Serial.println(delaySemnalizare);
-      Serial.print("Received animatieSemnalizare: ");
-      Serial.println(animatieSemnalizare);
-      Serial.print("Received stareSemnalizare: ");
-      Serial.println(stareSemnalizare);
-    } else if (CAN.packetId() == 0x124) {
-      uint8_t data2[3];
-      int stilSetari;
-      bool showmodeSetari;
       
-      // Citește datele din al doilea pachet
-      for (int i = 0; i < 3; i++) {
-        data2[i] = CAN.read();
-      }
-      
-      // Reconstruiește variabilele din al doilea pachet
-      stilSetari = data2[0];
-      showmodeSetari = data2[1] == 1 ? true : false;
-      
-      // Afișează datele primite
-      Serial.print("Received stilSetari: ");
-      Serial.println(stilSetari);
-      Serial.print("Received showmodeSetari: ");
-      Serial.println(showmodeSetari);
-    }
+    } 
+    Pozitie.intensitate = intensitatePozitie;
+    Pozitie.animatie = animatiePozitie;
+    Semnalizare.intensitate = intensitateSemnalizare;
+    Semnalizare.delay = delaySemnalizare;
+    Semnalizare.animatie = animatieSemnalizare;
+    // Pozitie.stil = stilSetari;
+    // showmode = showmodeSetari;
+
+    // Serial.print("Received intensitatePozitie: ");
+    // Serial.println(Pozitie.intensitate);
+    // Serial.print("Received animatiePozitie: ");
+    // Serial.println(Pozitie.animatie);
+    // Serial.print("Received intensitateSemnalizare: ");
+    // Serial.println(Semnalizare.intensitate);
+    // Serial.print("Received delaySemnalizare: ");
+    // Serial.println(Semnalizare.delay);
+    // Serial.print("Received animatieSemnalizare: ");
+    // Serial.println(Semnalizare.animatie);
+    // Serial.print("Received stilSetari: ");
+    // Serial.println(Pozitie.stil);
+    // Serial.print("Received showmodeSetari: ");
+    // Serial.println(showmode);
   }
 }
 
@@ -242,8 +245,9 @@ void showPozitie(){
       pozitieLoop3(CRGB::Black,0);
     }
   }
-  else if(Pozitie.onoff == 1 && franaOnOff == 0){
+  else if(Pozitie.onoff == 1){
     if(Pozitie.stil == 1){
+      // pozitieLoop2(CRGB::Black,0);
       if(Pozitie.animatie == true){
         pozitieLoop1(colorRed,Pozitie.delay);
       }
@@ -252,6 +256,7 @@ void showPozitie(){
       }
     }
     else if(Pozitie.stil == 2){
+      // pozitieLoop1(CRGB::Black,0);
       if(Pozitie.animatie == true){
         pozitieLoop2(colorRed,Pozitie.delay);
       }
@@ -470,34 +475,34 @@ void semnalizareSimpla2(CRGB c, int delay_time){
 }
 
 void semnalizareSecventiala2(CRGB c, int delay_time){
-  int i = 2*colsS, j = startJ, x = 2*colsS, y = startJ;
-  leds[i] = c; leds[i+1] = c; leds[i+2] = c;
-  leds[j] = c; leds[j+1] = c; leds[j+2] = c;
-  i = i + 3; j = j + 3;
+  int i = 2*colsS+7, j = startJ+8, x = 2*colsS+7, y = startJ+8;
+  leds[i] = c; leds[i-1] = c; leds[i-2] = c;
+  leds[j] = c; leds[j-1] = c; leds[j-2] = c;
+  i = i - 3; j = j - 3;
   FastLED.show();
   delay(delay_time);
-  leds[i] = c; leds[i+1] = c; leds[i+2] = c;
-  leds[j] = c; leds[j+1] = c; leds[j+2] = c;
-  i = i + 3; j = j + 3;
+  leds[i] = c; leds[i-1] = c; leds[i-2] = c;
+  leds[j] = c; leds[j-1] = c; leds[j-2] = c;
+  i = i - 3; j = j - 3;
   FastLED.show();
   delay(delay_time);
-  leds[i] = c; leds[i+1] = c;
-  leds[j] = c; leds[j+1] = c; leds[j+2] = c;
+  leds[i] = c; leds[i-1] = c;
+  leds[j] = c; leds[j-1] = c; leds[j-2] = c;
   FastLED.show();
   delay(delay_time);
 
-  leds[x] = CRGB::Black; leds[x+1] = CRGB::Black; leds[x+2] = CRGB::Black;
-  leds[y] = CRGB::Black; leds[y+1] = CRGB::Black; leds[y+2] = CRGB::Black;
-  x = x + 3; y = y + 3;
+  leds[x] = CRGB::Black; leds[x-1] = CRGB::Black; leds[x-2] = CRGB::Black;
+  leds[y] = CRGB::Black; leds[y-1] = CRGB::Black; leds[y-2] = CRGB::Black;
+  x = x - 3; y = y - 3;
   FastLED.show();
   delay(delay_time);
-  leds[x] = CRGB::Black; leds[x+1] = CRGB::Black; leds[x+2] = CRGB::Black;
-  leds[y] = CRGB::Black; leds[y+1] = CRGB::Black; leds[y+2] = CRGB::Black;
-  x = x + 3; y = y + 3;
+  leds[x] = CRGB::Black; leds[x-1] = CRGB::Black; leds[x-2] = CRGB::Black;
+  leds[y] = CRGB::Black; leds[y-1] = CRGB::Black; leds[y-2] = CRGB::Black;
+  x = x - 3; y = y - 3;
   FastLED.show();
   delay(delay_time);
-  leds[x] = CRGB::Black; leds[x+1] = CRGB::Black;
-  leds[y] = CRGB::Black; leds[y+1] = CRGB::Black; leds[y+2] = CRGB::Black;
+  leds[x] = CRGB::Black; leds[x-1] = CRGB::Black;
+  leds[y] = CRGB::Black; leds[y-1] = CRGB::Black; leds[y-2] = CRGB::Black;
   FastLED.show();
   delay(delay_time);
 }
